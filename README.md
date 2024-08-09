@@ -24,6 +24,8 @@ import pickle
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+models = [LinearRegression(), DecisionTreeRegressor(), RandomForestRegressor(), KNeighborsRegressor(), GradientBoostingRegressor()]
+
 def extract_numbers_from_filename(filepath):
     filename = os.path.basename(filepath)
     match = re.match(r'(\d+)_(\d+)_data\.csv', filename)
@@ -114,7 +116,7 @@ def train_ensemble(filepath):
     df = pd.read_csv(filepath)
     logging.info(f"Started processing ICR Number: {icr_num}, Inverter Number: {inv_num}")
 
-    df_date = pd.read_csv('dates/8_2_data_old.csv')
+    df_date = pd.read_csv(r'C:\Users\rachitgandhi2\OneDrive - KPMG\Desktop\Solar_Azure_Deploy\Final_Train\dates\8_2_data_old.csv')
     df['datetime'] = df_date['timestamp']
     df.set_index('datetime', drop=True, inplace=True)
     df.rename(columns={'ICR1.WMS_PRG.WMS.GLOBAL_TILT_IRRADIATION_Wm2': 'irradiance'}, inplace=True)
@@ -126,7 +128,7 @@ def train_ensemble(filepath):
     df['deferred_15min'] = df['irradiance'].shift(15).rolling(window=15).mean()
     df['deferred_30min'] = df['irradiance'].shift(30).rolling(window=30).mean()
     df['deferred_60min'] = df['irradiance'].shift(60).rolling(window=60).mean()
-    
+    df.dropna(inplace=True)
     X = df[['irradiance', 'deferred_10min', 'deferred_15min', 'deferred_30min', 'deferred_60min', 'sin_time', 'cos_time']]
     y = df[[f'icr{icr_num}_inv1_dcpower']]
     
@@ -141,5 +143,17 @@ def train_ensemble(filepath):
     ensembler_pred(indices, weights, [type(model).__name__ for model in models])
     logging.info(f"Finished processing ICR Number: {icr_num}, Inverter Number: {inv_num}")
 
-# Call the main function
-train_ensemble('8_1_data.csv')
+
+# Define the directory where the CSV files are located
+directory = r'C:\Users\rachitgandhi2\OneDrive - KPMG\Desktop\Solar_Azure_Deploy\Final_Train'
+
+# Define the pattern of the CSV files
+pattern = '*_*_data.csv'
+
+# Get the paths of all CSV files of the specified format in the directory
+csv_files = glob.glob(os.path.join(directory, pattern))
+
+# Print the paths of the CSV files
+for csv_file in csv_files:
+    icr_num, inv_num = extract_numbers_from_filename(csv_file)
+    train_ensemble(csv_file)
